@@ -1,0 +1,7 @@
+
+int line = 1; /* Current line number */
+int pos = 0; /* Start position of token */
+int epos = 1; /* End position of token */
+OpType op;   /* Last operator scanned */
+void lex_err( char*,char *); /* Reports lexical errors */
+bool lex_init(char* srcfile, char* outfile) /*Initializes the lexer */

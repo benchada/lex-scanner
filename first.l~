@@ -1,0 +1,135 @@
+
+/*Lex Specification of a TINY Scanner*/
+
+%{
+/* Literal block */
+#include "scan.h"
+#include . . .
+/* Scanner header file */
+
+enum OpType { ADD=1, SUB, MUL, DIV, EQ, NE, LT, LE, GT, GE, ASGN }; /*Operator Type*/
+enum TokenType { IF_TK=300, THEN_TK, ELSE_TK, WHILE_TK, DO_TK, END_TK, READ_TK, WRITE_TK, ID, ADDOP, MULOP, RELOP, ASGNOP, INTLIT, STRLIT }; /* Tokens Type*/
+
+int line = 1; /* Current line number */
+int pos = 0; /* Start position of token */
+int epos = 1; /* End position of token */
+OpType op;   /* Last operator scanned */
+void lex_err( char*,char *); /* Reports lexical errors */
+bool lex_init(char* srcfile, char* outfile) /*Initializes the lexer */
+
+/* Regular definitions */
+
+letter [A-Za-z_] /* letter can be underscore */
+digit [0-9]
+blank_str [\t]+
+identifier {letter}({letter}|{digit})*
+int_literal {digit}+
+str_literal \"([^\"\n])*\"
+
+/* Regular definitions to match invalid tokens */
+open_string \"([^\"\n])*$
+
+%}
+
+%% /* Second Section: Rules & Actions */
+
+\n {line++; epos = 1;}
+{blank_str} {epos += yyleng;}
+[Ii][Ff] {pos = epos; epos += 2; return IF_TK;}
+[Tt][Hh][Ee][Nn] {pos = epos; epos += 4; return THEN_TK;}
+[Ee][Ll][Ss][Ee] {pos = epos; epos += 4; return ELSE_TK;}
+[Ee][Nn][Dd] {pos = epos; epos += 3; return END_TK;}
+[Ww][Hh][Ii][Ll][Ee] {pos = epos; epos += 5; return WHILE_TK;}
+[Dd][Oo] {pos = epos; epos += 2; return DO_TK;}
+[Rr][Ee][Aa][Dd] {pos = epos; epos += 4; return READ_TK;}
+[Ww][Rr][Ii][Tt][Ee] {pos = epos; epos += 5; return WRITE_TK;}
+{identifier} {pos = epos; epos += yyleng; return ID;}
+{str_literal} {pos = epos; epos += yyleng; return STRLIT;}
+{int_literal} {pos = epos; epos += yyleng; return INTLIT;}
+
+"+" {op = ADD; pos = epos; epos += 1; return ADDOP;}
+"-" {op = SUB; pos = epos; epos += 1; return ADDOP;}
+"*" {op = MUL; pos = epos; epos += 1; return MULOP;}
+"/" {op = DIV; pos = epos; epos += 1; return MULOP;}
+"=" {op = EQ; pos = epos; epos += 1; return RELOP;}
+"<>" {op = NE; pos = epos; epos += 2; return RELOP;}
+"<" {op = LT; pos = epos; epos += 1; return RELOP;}
+"<=" {op = LE; pos = epos; epos += 2; return RELOP;}
+">" {op = GT; pos = epos; epos += 1; return RELOP;}
+">=" {op = GE; pos = epos; epos += 2; return RELOP;}
+":=" {op = ASGN; pos = epos; epos += 2; return ASGNOP;}
+"," {pos = epos; epos += 1; return ’,’ ;}
+";" {pos = epos; epos += 1; return ’;’;}
+"(" {pos = epos; epos += 1; return ’(’;}
+")" {pos = epos; epos += 1; return ’)’;}
+
+/* Handeling mutli line comments */
+"{" {   
+	int c; 
+	int start_line = line; /* comment start line */
+	int pos = epos; /* comment start position */
+	epos++; /* for "{" */
+	c = yyinput();
+	while (c != EOF) 
+	{
+		epos++; // each character leads to an addition  in the position
+		if(c =="}") break ; //end of the comment
+		if (c =='\n') {line++; epos=1;}; // multiple lines are allowed in this tyoe of comment
+		c = yyinput(); //update the character
+	}
+	if (c == EOF) {
+		/* reached EOF */
+		int eof_line = line; //the last line
+		line = start_line; // to report in the error, when this comment has started
+		lex_err("Open Comment", "");
+		line = eof_line; // updating its value again
+		}
+    } 
+{open_string} { pos = epos; epos += yyleng; lex_err("Open String", yytext);
+		return STRLIT;}
+.	      { pos = epos; epos += 1; lex_err("Unknown Character", yytext);}
+
+%%
+
+// Third Section
+// Report a lexical error and count it
+void lex_err(char * s1, char * s2)
+	{
+	fprintf(stderr, "l%d, c%d: %s %s\n", line, pos, s1, s2);
+	totalErrors++;
+	}
+// yywrap is required by lex
+// return 1 means no wrap to another source file
+int yywrap() { return 1; };
+
+/* The function lex_init initializes yyin and yyou */
+
+bool lex_init(char* srcfile, char* outfile) {
+	yyin = fopen(srcfile,"r"); 	// Initialize yyin
+	yyout = fopen(outfile,"w");     // Initialize yyout
+	bool done = true ;// Until proven otherwise
+	if (yyin == 0) {
+	fprintf(stderr,"Can’t open %s\n", srcfile);
+	done = false;
+	}
+	if(yyout == 0) {
+	fprintf(stderr,"Can’t open %s\n", outfile);
+	done = false;
+	}
+	return done;
+ };
+
+//The main function
+
+int main(int argc, char* argv[]) {
+	if (argc == 1) { ... } // Filenames NOT given
+	else if (argc == 2) { ... } // Outfilename NOT given
+
+	if (!lex_init(argv[1],argv[2])) // Cannot open files
+	return 1;
+	while (	int token = yylex()) {
+	// Call yylex repeatedly
+	// Display token information
+	}
+	return 	0;
+}
